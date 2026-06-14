@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         predb.fr on TMDB
 // @namespace    https://predb.fr/
-// @version      1.1.0
+// @version      1.1.1
 // @description  Shows predb.fr scene/p2p releases (name, date, size, NFO) on TMDB movie/series pages (FR/EN)
 // @author       predb.fr
 // @match        https://www.themoviedb.org/movie/*
@@ -40,7 +40,7 @@
       'err.401': '401 — clé API manquante ou invalide',
       'err.network': 'Erreur réseau',
       'err.timeout': 'Timeout',
-      'nfo.download': '⬇ Télécharger .nfo',
+      'nfo.download': 'Télécharger .nfo',
       'nfo.dlFail': 'Téléchargement impossible : ',
       'nfo.quota': 'quota de téléchargement atteint',
       'nfo.unavailable': 'NFO indisponible : ',
@@ -81,7 +81,7 @@
       'err.401': '401 — API key missing or invalid',
       'err.network': 'Network error',
       'err.timeout': 'Timeout',
-      'nfo.download': '⬇ Download .nfo',
+      'nfo.download': 'Download .nfo',
       'nfo.dlFail': 'Download failed: ',
       'nfo.quota': 'download quota reached',
       'nfo.unavailable': 'NFO unavailable: ',
@@ -412,29 +412,41 @@
       background: #fff; color: #333; font-size: 12px; cursor: pointer;
     }
 
-    #predbfr-modal { position: fixed; inset: 0; z-index: 2147483000; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; }
+    #predbfr-modal { position: fixed; inset: 0; z-index: 2147483000; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
     #predbfr-modal .box {
-      background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 10px;
-      max-width: min(1000px, 95vw); max-height: 88vh; display: flex; flex-direction: column;
-      box-shadow: 0 20px 60px rgba(0,0,0,.7); overflow: hidden;
+      background: oklch(0.145 0 0); border: 1px solid oklch(1 0 0 / 10%); border-radius: 8px;
+      width: min(896px, 95vw); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+      font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    #predbfr-modal .bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #161616; border-bottom: 1px solid #2a2a2a; }
+    #predbfr-modal .bar { display: flex; align-items: center; gap: 12px; padding: 16px; background: oklch(0.269 0 0); border-bottom: 1px solid oklch(1 0 0 / 10%); }
+    #predbfr-modal .predbfr-nfo-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+    #predbfr-modal .predbfr-nfo-icon {
+      padding: 8px; background: oklch(0.922 0 0 / 0.1); border-radius: 8px; color: oklch(0.922 0 0);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
     #predbfr-modal .predbfr-nfo-title { min-width: 0; }
     #predbfr-modal .predbfr-nfo-title .name {
-      font-family: ui-monospace, Consolas, monospace; font-size: 13px; font-weight: 700;
-      color: #e8e8e8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw;
+      font-family: ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 700;
+      color: oklch(0.985 0 0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    #predbfr-modal .predbfr-nfo-title .sub { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #777; font-weight: 700; }
-    #predbfr-modal .acts { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    #predbfr-modal .predbfr-nfo-title .sub { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: oklch(0.708 0 0); font-weight: 700; }
+    #predbfr-modal .acts { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     #predbfr-modal .predbfr-nfo-dl {
-      font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 6px; white-space: nowrap;
-      border: 1px solid rgba(33,208,122,.5); background: transparent; color: #21d07a; cursor: pointer;
+      height: 32px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+      padding: 0 12px; border-radius: 8px; white-space: nowrap;
+      border: 1px solid oklch(0.922 0 0 / 0.4); background: transparent; color: oklch(0.922 0 0); cursor: pointer;
     }
-    #predbfr-modal .predbfr-nfo-dl:hover { background: rgba(33,208,122,.12); }
+    #predbfr-modal .predbfr-nfo-dl:hover { background: oklch(0.922 0 0 / 0.1); }
     #predbfr-modal .predbfr-nfo-dl[disabled] { opacity: .5; cursor: default; }
-    #predbfr-modal .x { cursor: pointer; color: #888; font-size: 22px; line-height: 1; background: none; border: none; padding: 0 4px; }
-    #predbfr-modal .x:hover { color: #fff; }
-    #predbfr-modal .nfo-body { background: #000; padding: 24px; overflow: auto; }
+    #predbfr-modal .predbfr-nfo-dl-ic { display: flex; }
+    #predbfr-modal .x svg, #predbfr-modal .predbfr-nfo-icon svg { display: block; }
+    #predbfr-modal .x {
+      height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; color: oklch(0.708 0 0); background: none; border: none; border-radius: 6px; padding: 0;
+    }
+    #predbfr-modal .x:hover { color: oklch(0.985 0 0); background: #27272a; }
+    #predbfr-modal .nfo-body { background: #000; padding: 24px; overflow: auto; flex: 1; width: 100%; }
     #predbfr-modal .nfo-body pre {
       margin: 0; color: #c0c0c0; white-space: pre;
       font-family: 'PxPlus IBM VGA8', 'Terminal', 'Consolas', 'Courier New', monospace;
@@ -474,23 +486,32 @@
     #predbfr-config .predbfr-cfg-cancel:hover { background: #f0f0f0; }
   `);
 
+  const ICON_FILE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
+  const ICON_DOWNLOAD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>';
+  const ICON_X = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
   function openNfoModal(release, content) {
     closeNfoModal();
 
-    const dl = el('button', { class: 'predbfr-nfo-dl', text: t('nfo.download') });
+    const dlIcon = el('span', { class: 'predbfr-nfo-dl-ic', html: ICON_DOWNLOAD });
+    const dlText = el('span', { text: t('nfo.download') });
+    const dl = el('button', { class: 'predbfr-nfo-dl' }, [dlIcon, dlText]);
     dl.addEventListener('click', async () => {
-      const old = dl.textContent; dl.textContent = '…'; dl.disabled = true;
+      const old = dlText.textContent; dlText.textContent = '…'; dl.disabled = true;
       try { await downloadNfo(release); }
       catch (e) { alert(t('nfo.dlFail') + e.message); }
-      finally { dl.textContent = old; dl.disabled = false; }
+      finally { dlText.textContent = old; dl.disabled = false; }
     });
-    const close = el('button', { class: 'x', text: '×', title: t('modal.close') });
+    const close = el('button', { class: 'x', html: ICON_X, title: t('modal.close') });
 
-    const title = el('div', { class: 'predbfr-nfo-title' }, [
-      el('div', { class: 'name', text: release.name, title: release.name }),
-      el('div', { class: 'sub', text: t('modal.sub') }),
+    const left = el('div', { class: 'predbfr-nfo-left' }, [
+      el('div', { class: 'predbfr-nfo-icon', html: ICON_FILE }),
+      el('div', { class: 'predbfr-nfo-title' }, [
+        el('div', { class: 'name', text: release.name, title: release.name }),
+        el('div', { class: 'sub', text: t('modal.sub') }),
+      ]),
     ]);
-    const bar = el('div', { class: 'bar' }, [title, el('div', { class: 'acts' }, [dl, close])]);
+    const bar = el('div', { class: 'bar' }, [left, el('div', { class: 'acts' }, [dl, close])]);
     const body = el('div', { class: 'nfo-body' }, [el('pre', { text: content })]);
     const overlay = el('div', { id: 'predbfr-modal' }, [el('div', { class: 'box' }, [bar, body])]);
 
