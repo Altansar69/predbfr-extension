@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         predb.fr on TMDB
 // @namespace    https://predb.fr/
-// @version      1.0.0
+// @version      1.1.0
 // @description  Shows predb.fr scene/p2p releases (name, date, size, NFO) on TMDB movie/series pages (FR/EN)
 // @author       predb.fr
 // @match        https://www.themoviedb.org/movie/*
@@ -28,10 +28,14 @@
 
   const STRINGS = {
     fr: {
-      'cfg.prompt': 'Colle l’URL complète fournie par predb.fr (elle contient ta clé api_key).\nExemple : {ex}',
       'cfg.invalid': 'URL invalide : il faut l’URL fournie par predb.fr, contenant « api_key=… ».',
-      'menu.config': 'predb.fr : configurer (coller l’URL fournie)',
-      'menu.lang': 'predb.fr : passer en anglais',
+      'cfg.title': 'Configuration predb.fr',
+      'cfg.urlLabel': 'URL de feed',
+      'cfg.urlHelp': 'À récupérer dans « Réglages › Clé API » sur predb.fr (elle contient api_key=…). Laisse vide pour effacer.',
+      'cfg.langLabel': 'Langue',
+      'cfg.save': 'Enregistrer',
+      'cfg.cancel': 'Annuler',
+      'menu.config': 'predb.fr : configurer',
       'err.json': 'Réponse JSON invalide',
       'err.401': '401 — clé API manquante ou invalide',
       'err.network': 'Erreur réseau',
@@ -65,10 +69,14 @@
       'run.error': 'Erreur : ',
     },
     en: {
-      'cfg.prompt': 'Paste the full URL provided by predb.fr (it contains your api_key).\nExample: {ex}',
       'cfg.invalid': 'Invalid URL: use the URL provided by predb.fr, containing “api_key=…”.',
-      'menu.config': 'predb.fr: configure (paste the provided URL)',
-      'menu.lang': 'predb.fr : switch to French',
+      'cfg.title': 'predb.fr configuration',
+      'cfg.urlLabel': 'Feed URL',
+      'cfg.urlHelp': 'Get it from “Settings › API key” on predb.fr (it contains api_key=…). Leave empty to clear.',
+      'cfg.langLabel': 'Language',
+      'cfg.save': 'Save',
+      'cfg.cancel': 'Cancel',
+      'menu.config': 'predb.fr: configure',
       'err.json': 'Invalid JSON response',
       'err.401': '401 — API key missing or invalid',
       'err.network': 'Network error',
@@ -148,29 +156,63 @@
     return { q: m[1] + ':' + m[2], anchor, placement: 'prepend' };
   }
 
-  function promptConfig() {
-    const next = prompt(
-      t('cfg.prompt', { ex: SITE.replace('predb', 'api.predb') + '/api/v1/releases?api_key=XXXX' }),
-      GM_getValue('feedUrl', '')
-    );
-    if (next === null) return;
-    const trimmed = next.trim();
-    const parsed = parseFeed(trimmed);
-    if (trimmed && !parsed) {
-      alert(t('cfg.invalid'));
-      return;
+  function openConfigModal() {
+    closeConfigModal();
+    const input = el('input', {
+      type: 'text', class: 'predbfr-cfg-input',
+      placeholder: SITE.replace('predb', 'api.predb') + '/api/v1/releases?api_key=...',
+    });
+    input.value = GM_getValue('feedUrl', '');
+    const err = el('div', { class: 'predbfr-cfg-err' });
+
+    const langSel = el('select', { class: 'predbfr-cfg-lang' });
+    for (const [code, label] of [['fr', 'Français'], ['en', 'English']]) {
+      const o = el('option', { value: code, text: label });
+      if (code === LANG) o.selected = true;
+      langSel.appendChild(o);
     }
-    GM_setValue('feedUrl', trimmed);
-    config = parsed;
-    state.currentKey = null;
-    run();
+
+    const save = el('button', { class: 'predbfr-cfg-save', text: t('cfg.save') });
+    const cancel = el('button', { class: 'predbfr-cfg-cancel', text: t('cfg.cancel') });
+    save.addEventListener('click', () => {
+      const raw = input.value.trim();
+      const parsed = parseFeed(raw);
+      if (raw && !parsed) { err.textContent = t('cfg.invalid'); err.style.display = 'block'; return; }
+      GM_setValue('feedUrl', raw);
+      config = parsed;
+      const newLang = langSel.value === 'fr' ? 'fr' : 'en';
+      GM_setValue('lang', newLang);
+      LANG = newLang;
+      state.currentKey = null;
+      closeConfigModal();
+      run();
+    });
+    cancel.addEventListener('click', closeConfigModal);
+
+    const box = el('div', { class: 'box' }, [
+      el('div', { class: 'predbfr-cfg-title', text: t('cfg.title') }),
+      el('label', { class: 'predbfr-cfg-label', text: t('cfg.urlLabel') }),
+      input,
+      el('div', { class: 'predbfr-cfg-help', text: t('cfg.urlHelp') }),
+      err,
+      el('label', { class: 'predbfr-cfg-label', text: t('cfg.langLabel') }),
+      langSel,
+      el('div', { class: 'predbfr-cfg-acts' }, [cancel, save]),
+    ]);
+    const overlay = el('div', { id: 'predbfr-config' }, [box]);
+    const onKey = (e) => { if (e.key === 'Escape') closeConfigModal(); };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeConfigModal(); });
+    overlay._onKey = onKey;
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    input.focus();
+  }
+  function closeConfigModal() {
+    const m = document.getElementById('predbfr-config');
+    if (m) { if (m._onKey) document.removeEventListener('keydown', m._onKey); m.remove(); }
   }
 
-  GM_registerMenuCommand(t('menu.config'), promptConfig);
-  GM_registerMenuCommand(t('menu.lang'), () => {
-    GM_setValue('lang', LANG === 'fr' ? 'en' : 'fr');
-    location.reload();
-  });
+  GM_registerMenuCommand(t('menu.config'), openConfigModal);
 
   function formatVolume(bytes) {
     const n = typeof bytes === 'string' ? parseInt(bytes, 10) : bytes;
@@ -399,6 +441,37 @@
       font-size: 14px; line-height: 1.0; letter-spacing: 0;
       -webkit-font-smoothing: none; font-smooth: never;
     }
+
+    #predbfr-config { position: fixed; inset: 0; z-index: 2147483001; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 20px; }
+    #predbfr-config .box {
+      background: #fff; color: #111; border-radius: 12px; width: min(520px, 95vw);
+      padding: 22px; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+      font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #predbfr-config .predbfr-cfg-title { font-size: 18px; font-weight: 700; margin: 0 0 8px; }
+    #predbfr-config .predbfr-cfg-label {
+      display: block; font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .4px; color: #666; margin: 14px 0 6px;
+    }
+    #predbfr-config .predbfr-cfg-input, #predbfr-config .predbfr-cfg-lang {
+      width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid #d7d7d7;
+      border-radius: 8px; font-size: 14px; background: #fff; color: #111;
+    }
+    #predbfr-config .predbfr-cfg-lang { cursor: pointer; }
+    #predbfr-config .predbfr-cfg-input:focus, #predbfr-config .predbfr-cfg-lang:focus { outline: none; border-color: #21d07a; }
+    #predbfr-config .predbfr-cfg-help { font-size: 12px; color: #888; margin-top: 6px; }
+    #predbfr-config .predbfr-cfg-err { display: none; font-size: 13px; color: #d63638; font-weight: 600; margin-top: 8px; }
+    #predbfr-config .predbfr-cfg-acts { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+    #predbfr-config .predbfr-cfg-save {
+      background: #21d07a; color: #032b1b; border: none; padding: 9px 18px;
+      border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer;
+    }
+    #predbfr-config .predbfr-cfg-save:hover { background: #1bb86c; }
+    #predbfr-config .predbfr-cfg-cancel {
+      background: #fff; color: #444; border: 1px solid #d7d7d7; padding: 9px 18px;
+      border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer;
+    }
+    #predbfr-config .predbfr-cfg-cancel:hover { background: #f0f0f0; }
   `);
 
   function openNfoModal(release, content) {
@@ -452,7 +525,7 @@
     ]);
     if (count != null) h.appendChild(el('span', { class: 'predbfr-count', text: String(count) }));
     const keyBtn = el('button', { class: 'predbfr-key', text: config ? t('head.config') : t('head.configure') });
-    keyBtn.addEventListener('click', promptConfig);
+    keyBtn.addEventListener('click', openConfigModal);
     h.appendChild(keyBtn);
     return h;
   }
@@ -463,7 +536,7 @@
     const m = el('div', { class: 'predbfr-msg' + (isErr ? ' err' : '') }, [el('span', { text })]);
     if (withCfgBtn) {
       const b = el('button', { text: t('msg.configure') });
-      b.addEventListener('click', promptConfig);
+      b.addEventListener('click', openConfigModal);
       m.appendChild(b);
     }
     sec.appendChild(m);
