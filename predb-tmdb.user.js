@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         predb.fr on TMDB
 // @namespace    https://predb.fr/
-// @version      1.1.1
+// @version      1.2.0
 // @description  Shows predb.fr scene/p2p releases (name, date, size, NFO) on TMDB movie/series pages (FR/EN)
 // @author       predb.fr
 // @match        https://www.themoviedb.org/movie/*
@@ -270,39 +270,6 @@
     });
   }
 
-  const CP437_HIGH =
-    'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»' +
-    '░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀' +
-    'αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ';
-
-  function decodeNfo(buf) {
-    const bytes = new Uint8Array(buf);
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch (e) {}
-    let out = '';
-    for (let i = 0; i < bytes.length; i++) {
-      const b = bytes[i];
-      out += b < 0x80 ? String.fromCharCode(b) : CP437_HIGH[b - 0x80];
-    }
-    return out;
-  }
-
-  function fetchNfo(name, source) {
-    return new Promise((resolve, reject) => {
-      GM_xmlhttpRequest({
-        method: 'GET',
-        url: config.api + '/v1/releases/nfo?name=' + encodeURIComponent(name) +
-          '&source=' + encodeURIComponent(source || 'P2P'),
-        headers: { 'X-API-Key': getApiKey() },
-        responseType: 'arraybuffer',
-        timeout: 15000,
-        onload: (res) => res.status >= 200 && res.status < 300
-          ? resolve(decodeNfo(res.response)) : reject(new Error('HTTP ' + res.status)),
-        onerror: () => reject(new Error(t('err.network'))),
-        ontimeout: () => reject(new Error(t('err.timeout'))),
-      });
-    });
-  }
-
   function downloadNfo(release) {
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
@@ -413,46 +380,7 @@
     }
 
     #predbfr-modal { position: fixed; inset: 0; z-index: 2147483000; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
-    #predbfr-modal .box {
-      background: oklch(0.145 0 0); border: 1px solid oklch(1 0 0 / 10%); border-radius: 8px;
-      width: min(896px, 95vw); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0,0,0,.6);
-      font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    #predbfr-modal .bar { display: flex; align-items: center; gap: 12px; padding: 16px; background: oklch(0.269 0 0); border-bottom: 1px solid oklch(1 0 0 / 10%); }
-    #predbfr-modal .predbfr-nfo-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
-    #predbfr-modal .predbfr-nfo-icon {
-      padding: 8px; background: oklch(0.922 0 0 / 0.1); border-radius: 8px; color: oklch(0.922 0 0);
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    #predbfr-modal .predbfr-nfo-title { min-width: 0; }
-    #predbfr-modal .predbfr-nfo-title .name {
-      font-family: ui-monospace, Consolas, monospace; font-size: 14px; font-weight: 700;
-      color: oklch(0.985 0 0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    #predbfr-modal .predbfr-nfo-title .sub { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: oklch(0.708 0 0); font-weight: 700; }
-    #predbfr-modal .acts { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-    #predbfr-modal .predbfr-nfo-dl {
-      height: 32px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
-      padding: 0 12px; border-radius: 8px; white-space: nowrap;
-      border: 1px solid oklch(0.922 0 0 / 0.4); background: transparent; color: oklch(0.922 0 0); cursor: pointer;
-    }
-    #predbfr-modal .predbfr-nfo-dl:hover { background: oklch(0.922 0 0 / 0.1); }
-    #predbfr-modal .predbfr-nfo-dl[disabled] { opacity: .5; cursor: default; }
-    #predbfr-modal .predbfr-nfo-dl-ic { display: flex; }
-    #predbfr-modal .x svg, #predbfr-modal .predbfr-nfo-icon svg { display: block; }
-    #predbfr-modal .x {
-      height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center;
-      cursor: pointer; color: oklch(0.708 0 0); background: none; border: none; border-radius: 6px; padding: 0;
-    }
-    #predbfr-modal .x:hover { color: oklch(0.985 0 0); background: #27272a; }
-    #predbfr-modal .nfo-body { background: #000; padding: 24px; overflow: auto; flex: 1; width: 100%; }
-    #predbfr-modal .nfo-body pre {
-      margin: 0; color: #c0c0c0; white-space: pre;
-      font-family: 'PxPlus IBM VGA8', 'Terminal', 'Consolas', 'Courier New', monospace;
-      font-size: 14px; line-height: 1.0; letter-spacing: 0;
-      -webkit-font-smoothing: none; font-smooth: never;
-    }
+    #predbfr-modal iframe { width: min(896px, 95vw); height: 88vh; border: 0; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.6); background: #000; }
 
     #predbfr-config { position: fixed; inset: 0; z-index: 2147483001; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 20px; }
     #predbfr-config .box {
@@ -486,45 +414,42 @@
     #predbfr-config .predbfr-cfg-cancel:hover { background: #f0f0f0; }
   `);
 
-  const ICON_FILE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>';
-  const ICON_DOWNLOAD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>';
-  const ICON_X = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
-
-  function openNfoModal(release, content) {
+  // La fenêtre NFO est servie ENTIÈREMENT par le backend (page autonome stylée),
+  // affichée ici dans une iframe → le rendu/les paramètres ne sont plus dupliqués
+  // dans l'extension. La page communique par postMessage (fermer / télécharger).
+  function openNfoModal(release) {
     closeNfoModal();
-
-    const dlIcon = el('span', { class: 'predbfr-nfo-dl-ic', html: ICON_DOWNLOAD });
-    const dlText = el('span', { text: t('nfo.download') });
-    const dl = el('button', { class: 'predbfr-nfo-dl' }, [dlIcon, dlText]);
-    dl.addEventListener('click', async () => {
-      const old = dlText.textContent; dlText.textContent = '…'; dl.disabled = true;
-      try { await downloadNfo(release); }
-      catch (e) { alert(t('nfo.dlFail') + e.message); }
-      finally { dlText.textContent = old; dl.disabled = false; }
-    });
-    const close = el('button', { class: 'x', html: ICON_X, title: t('modal.close') });
-
-    const left = el('div', { class: 'predbfr-nfo-left' }, [
-      el('div', { class: 'predbfr-nfo-icon', html: ICON_FILE }),
-      el('div', { class: 'predbfr-nfo-title' }, [
-        el('div', { class: 'name', text: release.name, title: release.name }),
-        el('div', { class: 'sub', text: t('modal.sub') }),
-      ]),
-    ]);
-    const bar = el('div', { class: 'bar' }, [left, el('div', { class: 'acts' }, [dl, close])]);
-    const body = el('div', { class: 'nfo-body' }, [el('pre', { text: content })]);
-    const overlay = el('div', { id: 'predbfr-modal' }, [el('div', { class: 'box' }, [bar, body])]);
-
-    const onKey = (e) => { if (e.key === 'Escape') closeNfoModal(); };
+    const frame = el('iframe', { allowfullscreen: 'true', allow: 'fullscreen' });
+    const overlay = el('div', { id: 'predbfr-modal' }, [frame]);
+    const onMsg = (e) => {
+      if (e.data === 'predbfr-nfo-close') closeNfoModal();
+      else if (e.data === 'predbfr-nfo-download') {
+        downloadNfo(release).catch((ex) => alert(t('nfo.dlFail') + ex.message));
+      }
+    };
+    overlay._onMsg = onMsg;
+    window.addEventListener('message', onMsg);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeNfoModal(); });
-    close.addEventListener('click', closeNfoModal);
-    overlay._onKey = onKey;
-    document.addEventListener('keydown', onKey);
     document.body.appendChild(overlay);
+
+    GM_xmlhttpRequest({
+      method: 'GET',
+      url: config.api + '/v1/releases/nfo/view?name=' + encodeURIComponent(release.name) +
+        '&source=' + encodeURIComponent(release.source || 'P2P') + '&lang=' + LANG,
+      headers: { 'X-API-Key': getApiKey() },
+      timeout: 15000,
+      onload: (res) => {
+        if (!document.getElementById('predbfr-modal')) return;
+        if (res.status >= 200 && res.status < 300) frame.srcdoc = res.responseText;
+        else { closeNfoModal(); alert(t('nfo.unavailable') + 'HTTP ' + res.status); }
+      },
+      onerror: () => { closeNfoModal(); alert(t('nfo.unavailable') + t('err.network')); },
+      ontimeout: () => { closeNfoModal(); alert(t('nfo.unavailable') + t('err.timeout')); },
+    });
   }
   function closeNfoModal() {
     const m = document.getElementById('predbfr-modal');
-    if (m) { if (m._onKey) document.removeEventListener('keydown', m._onKey); m.remove(); }
+    if (m) { if (m._onMsg) window.removeEventListener('message', m._onMsg); m.remove(); }
   }
 
   function ensureSection(anchor, placement) {
@@ -671,12 +596,7 @@
       const nfoCell = el('td');
       if (r.has_nfo) {
         const btn = el('button', { class: 'predbfr-nfo-btn', text: 'NFO' });
-        btn.addEventListener('click', async () => {
-          const old = btn.textContent; btn.textContent = '…'; btn.disabled = true;
-          try { openNfoModal(r, await fetchNfo(r.name, r.source)); }
-          catch (e) { alert(t('nfo.unavailable') + e.message); }
-          finally { btn.textContent = old; btn.disabled = false; }
-        });
+        btn.addEventListener('click', () => openNfoModal(r));
         nfoCell.appendChild(btn);
       } else {
         nfoCell.appendChild(el('span', { class: 'predbfr-c', text: '—' }));
