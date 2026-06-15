@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         predb.fr on TMDB
 // @namespace    https://predb.fr/
-// @version      1.2.0
+// @version      1.3.0
 // @description  Shows predb.fr scene/p2p releases (name, date, size, NFO) on TMDB movie/series pages (FR/EN)
 // @author       predb.fr
 // @match        https://www.themoviedb.org/movie/*
@@ -58,6 +58,7 @@
       'col.size': 'Taille',
       'col.nfo': 'NFO',
       'sort.by': 'Trier par {x}',
+      'search.placeholder': 'Filtrer…',
       'empty': 'Aucune release trouvée sur predb.fr.',
       'open.release': 'Ouvrir sur predb.fr',
       'open.source': 'Voir les releases {src} sur predb.fr',
@@ -99,6 +100,7 @@
       'col.size': 'Size',
       'col.nfo': 'NFO',
       'sort.by': 'Sort by {x}',
+      'search.placeholder': 'Filter…',
       'empty': 'No release found on predb.fr.',
       'open.release': 'Open on predb.fr',
       'open.source': 'See {src} releases on predb.fr',
@@ -312,6 +314,11 @@
       background: #21d07a; color: #032b1b; font-weight: 700;
       border-radius: 999px; padding: 1px 9px; font-size: 13px;
     }
+    #${SECTION_ID} .predbfr-search {
+      font-size: 12px; padding: 3px 8px; border: 1px solid #d7d7d7; border-radius: 6px;
+      background: #fff; color: #333; width: 170px; max-width: 45%;
+    }
+    #${SECTION_ID} .predbfr-search:focus { outline: none; border-color: #21d07a; }
     #${SECTION_ID} .predbfr-key {
       margin-left: auto; font-size: 12px; font-weight: 600; cursor: pointer;
       color: #1675b6; background: none; border: none; padding: 0; white-space: nowrap;
@@ -465,11 +472,25 @@
     return sec;
   }
 
-  function header(count) {
+  function header(count, searchSec) {
     const h = el('div', { class: 'predbfr-head' }, [
       el('span', { class: 'predbfr-logo', html: 'Releases — pre<b>db</b>.fr' }),
     ]);
     if (count != null) h.appendChild(el('span', { class: 'predbfr-count', text: String(count) }));
+    // Barre de recherche : filtre client-side la liste chargée (par nom).
+    if (searchSec) {
+      const inp = el('input', { class: 'predbfr-search', type: 'text', placeholder: t('search.placeholder') });
+      inp.value = state.filter;
+      inp.addEventListener('input', () => {
+        state.filter = inp.value;
+        state.page = 1;
+        render(searchSec, state.currentKey);
+        // render reconstruit l'input → on restaure le focus + le curseur en fin.
+        const ni = searchSec.querySelector('.predbfr-search');
+        if (ni) { ni.focus(); const v = ni.value.length; ni.setSelectionRange(v, v); }
+      });
+      h.appendChild(inp);
+    }
     const keyBtn = el('button', { class: 'predbfr-key', text: config ? t('head.config') : t('head.configure') });
     keyBtn.addEventListener('click', openConfigModal);
     h.appendChild(keyBtn);
@@ -544,7 +565,8 @@
   }
 
   function render(sec, query) {
-    const all = sortReleases(state.cache.releases);
+    const filtering = state.filter.trim().length > 0;
+    const all = sortReleases(applyFilter(state.cache.releases));
     const total = state.cache.total;
     const last = Math.max(1, Math.ceil(all.length / state.pageSize));
     if (state.page > last) state.page = last;
@@ -553,7 +575,8 @@
     const pageRows = all.slice(start, start + state.pageSize);
 
     sec.innerHTML = '';
-    sec.appendChild(header(total >= 0 ? total : all.length));
+    // Compteur : nombre filtré si un filtre est actif, sinon le total serveur.
+    sec.appendChild(header(filtering ? all.length : (total >= 0 ? total : all.length), sec));
 
     if (!all.length) {
       sec.appendChild(el('div', { class: 'predbfr-msg', text: t('empty') }));
@@ -625,10 +648,17 @@
   }
 
   const state = {
-    currentKey: null, page: 1,
+    currentKey: null, page: 1, filter: '',
     pageSize: parseInt(GM_getValue('pageSize', 5), 10) || 5,
     sort: 'date', order: 'desc', cache: { releases: [], total: 0 },
   };
+
+  // Filtre client-side par nom (qualité, team, etc.) sur les releases chargées.
+  function applyFilter(arr) {
+    const f = state.filter.trim().toLowerCase();
+    if (!f) return arr;
+    return arr.filter((r) => (r.name || '').toLowerCase().indexOf(f) !== -1);
+  }
 
   function setSort(sec, field) {
     if (state.sort === field) state.order = state.order === 'desc' ? 'asc' : 'desc';
@@ -669,7 +699,7 @@
   async function fetchData(sec, query) {
     state.currentKey = query;
     state.cache = { releases: [], total: 0 };
-    state.page = 1; state.sort = 'date'; state.order = 'desc';
+    state.page = 1; state.sort = 'date'; state.order = 'desc'; state.filter = '';
     msg(sec, t('run.searching'), false, false);
     try {
       const data = await apiGet('/v1/releases?q=' + encodeURIComponent(query) +
