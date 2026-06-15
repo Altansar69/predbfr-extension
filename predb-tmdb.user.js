@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         predb.fr on TMDB
 // @namespace    https://predb.fr/
-// @version      1.3.0
+// @version      1.4.0
 // @description  Shows predb.fr scene/p2p releases (name, date, size, NFO) on TMDB movie/series pages (FR/EN)
 // @author       predb.fr
 // @match        https://www.themoviedb.org/movie/*
@@ -426,12 +426,17 @@
   // dans l'extension. La page communique par postMessage (fermer / télécharger).
   function openNfoModal(release) {
     closeNfoModal();
-    const frame = el('iframe', { allowfullscreen: 'true', allow: 'fullscreen' });
+    const viewUrl = config.api + '/v1/releases/nfo/view?name=' + encodeURIComponent(release.name) +
+      '&source=' + encodeURIComponent(release.source || 'P2P') + '&lang=' + LANG;
+    const frame = el('iframe');
     const overlay = el('div', { id: 'predbfr-modal' }, [frame]);
     const onMsg = (e) => {
       if (e.data === 'predbfr-nfo-close') closeNfoModal();
       else if (e.data === 'predbfr-nfo-download') {
         downloadNfo(release).catch((ex) => alert(t('nfo.dlFail') + ex.message));
+      } else if (e.data === 'predbfr-nfo-open') {
+        // Ouvre la page NFO dédiée dans un nouvel onglet (auth par api_key en query).
+        window.open(viewUrl + '&api_key=' + encodeURIComponent(getApiKey()), '_blank', 'noopener');
       }
     };
     overlay._onMsg = onMsg;
@@ -441,8 +446,7 @@
 
     GM_xmlhttpRequest({
       method: 'GET',
-      url: config.api + '/v1/releases/nfo/view?name=' + encodeURIComponent(release.name) +
-        '&source=' + encodeURIComponent(release.source || 'P2P') + '&lang=' + LANG,
+      url: viewUrl,
       headers: { 'X-API-Key': getApiKey() },
       timeout: 15000,
       onload: (res) => {
@@ -653,11 +657,15 @@
     sort: 'date', order: 'desc', cache: { releases: [], total: 0 },
   };
 
-  // Filtre client-side par nom (qualité, team, etc.) sur les releases chargées.
+  // Filtre client-side par nom : chaque MOT de la requête doit apparaître dans le
+  // nom (ET), insensible casse. Ex. "1080 264" matche "...1080p.x264-TEAM".
   function applyFilter(arr) {
-    const f = state.filter.trim().toLowerCase();
-    if (!f) return arr;
-    return arr.filter((r) => (r.name || '').toLowerCase().indexOf(f) !== -1);
+    const tokens = state.filter.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return arr;
+    return arr.filter((r) => {
+      const name = (r.name || '').toLowerCase();
+      return tokens.every((tok) => name.indexOf(tok) !== -1);
+    });
   }
 
   function setSort(sec, field) {
